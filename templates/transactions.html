@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Transactions — Library Management System{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Transactions</h1>
+</div>
+
+{% if transactions %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Book</th>
+        <th>Member</th>
+        <th>Borrowed</th>
+        <th>Due</th>
+        <th>Returned</th>
+        <th class="num">Fine</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in transactions %}
+      <tr>
+        <td>{{ t.title }}</td>
+        <td>{{ t.name }}</td>
+        <td class="num">{{ t.borrow_date.strftime('%b %d, %Y') }}</td>
+        <td class="num">{{ t.due_date.strftime('%b %d, %Y') }}</td>
+        <td class="num">{{ t.return_date.strftime('%b %d, %Y') if t.return_date else '—' }}</td>
+        <td class="num">{{ '$%.2f'|format(t.fine) if t.fine else '—' }}</td>
+        <td>
+          {% if t.status == 'returned' %}
+          <span class="stamp stamp--returned">Returned</span>
+          {% elif t.due_date < today %}
+          <span class="stamp stamp--overdue">Overdue</span>
+          {% else %}
+          <span class="stamp stamp--ontime">On loan</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if t.status == 'borrowed' %}
+          <form method="POST" action="{{ url_for('return_book', transaction_id=t.transaction_id) }}">
+            <button type="submit" class="btn btn-outline btn-sm">Mark Returned</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="empty-note">No loans have been recorded yet. Head to <a href="{{ url_for('borrow') }}">Borrow / Return</a> to issue the first book.</p>
+{% endif %}
+{% endblock %}

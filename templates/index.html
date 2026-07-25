@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Library Management System{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Dashboard</h1>
+  <span class="date">{{ today.strftime('%A, %B %-d, %Y') }}</span>
+</div>
+
+<div class="stat-grid">
+  <div class="tag-card">
+    <span class="label">Total Books</span>
+    <span class="value">{{ total_books }}</span>
+  </div>
+  <div class="tag-card">
+    <span class="label">Total Members</span>
+    <span class="value">{{ total_members }}</span>
+  </div>
+  <div class="tag-card">
+    <span class="label">Currently Borrowed</span>
+    <span class="value">{{ borrowed_count }}</span>
+  </div>
+  <div class="tag-card {{ 'alert' if overdue_count > 0 }}">
+    <span class="label">Overdue</span>
+    <span class="value">{{ overdue_count }}</span>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Due soonest</h2>
+  {% if upcoming %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Book</th><th>Member</th><th>Due</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        {% for t in upcoming %}
+        <tr>
+          <td>{{ t.title }}</td>
+          <td>{{ t.name }}</td>
+          <td class="num">{{ t.due_date.strftime('%b %d, %Y') }}</td>
+          <td>
+            {% if t.due_date < today %}
+            <span class="stamp stamp--overdue">Overdue</span>
+            {% else %}
+            <span class="stamp stamp--ontime">On loan</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty-note">Nothing on loan right now. The shelves are fully stocked.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Member' if member else 'Add Member' }} — Library Management System{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>{{ 'Edit Member' if member else 'Add Member' }}</h1>
+</div>
+
+<div class="form-card">
+  <form method="POST">
+    <div class="field">
+      <label for="name">Full name</label>
+      <input type="text" id="name" name="name" value="{{ member.name if member else '' }}" required>
+    </div>
+    <div class="field">
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" value="{{ member.email if member else '' }}" required>
+    </div>
+    <div class="field">
+      <label for="phone">Phone</label>
+      <input type="tel" id="phone" name="phone" value="{{ member.phone if member else '' }}">
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn">{{ 'Save Changes' if member else 'Add Member' }}</button>
+      <a href="{{ url_for('members') }}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

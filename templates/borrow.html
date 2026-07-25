@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Borrow / Return — Library Management System{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Issue a Book</h1>
+</div>
+
+<div class="form-card">
+  {% if available_books and members %}
+  <form method="POST">
+    <div class="field">
+      <label for="book_id">Book</label>
+      <select id="book_id" name="book_id" required>
+        <option value="" disabled selected>Choose a book</option>
+        {% for b in available_books %}
+        <option value="{{ b.book_id }}">{{ b.title }} — {{ b.author }} ({{ b.available_copies }} available)</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="member_id">Member</label>
+      <select id="member_id" name="member_id" required>
+        <option value="" disabled selected>Choose a member</option>
+        {% for m in members %}
+        <option value="{{ m.member_id }}">{{ m.name }} — {{ m.email }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <p class="field-hint">Due back 14 days from today.</p>
+    <div class="form-actions">
+      <button type="submit" class="btn">Issue Book</button>
+    </div>
+  </form>
+  {% elif not available_books %}
+  <p class="empty-note">No copies are available to lend right now. Check back once something's returned, or <a href="{{ url_for('add_book') }}">add a new book</a>.</p>
+  {% else %}
+  <p class="empty-note">You'll need at least one registered member first. <a href="{{ url_for('add_member') }}">Add a member</a>.</p>
+  {% endif %}
+</div>
+
+<p class="muted" style="margin-top:18px; font-size:0.88rem;">
+  Looking to check a book back in? Do that from <a href="{{ url_for('transactions') }}">Transactions</a>.
+</p>
+{% endblock %}

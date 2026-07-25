@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Book' if book else 'Add Book' }} — Library Management System{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>{{ 'Edit Book' if book else 'Add Book' }}</h1>
+</div>
+
+<div class="form-card">
+  <form method="POST">
+    <div class="field">
+      <label for="title">Title</label>
+      <input type="text" id="title" name="title" value="{{ book.title if book else '' }}" required>
+    </div>
+    <div class="field">
+      <label for="author">Author</label>
+      <input type="text" id="author" name="author" value="{{ book.author if book else '' }}" required>
+    </div>
+    <div class="field">
+      <label for="isbn">ISBN</label>
+      <input type="text" id="isbn" name="isbn" value="{{ book.isbn if book else '' }}">
+    </div>
+    <div class="field">
+      <label for="genre">Genre</label>
+      <input type="text" id="genre" name="genre" value="{{ book.genre if book else '' }}">
+    </div>
+    <div class="field">
+      <label for="copies">Copies owned</label>
+      <input type="number" id="copies" name="copies" min="1" value="{{ book.total_copies if book else 1 }}" required>
+      {% if book %}<div class="field-hint">Currently {{ book.available_copies }} of {{ book.total_copies }} available.</div>{% endif %}
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn">{{ 'Save Changes' if book else 'Add Book' }}</button>
+      <a href="{{ url_for('books') }}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

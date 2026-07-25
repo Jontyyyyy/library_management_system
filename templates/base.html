@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Library Management System{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Karla:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">Ledger &amp; Stacks</div>
+        <div class="brand-sub">Library Management</div>
+      </div>
+      <nav class="nav">
+        <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint == 'index' }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1"></rect><rect x="13.5" y="3.5" width="7" height="7" rx="1"></rect><rect x="3.5" y="13.5" width="7" height="7" rx="1"></rect><rect x="13.5" y="13.5" width="7" height="7" rx="1"></rect></svg>
+          Dashboard
+        </a>
+        <a href="{{ url_for('books') }}" class="{{ 'active' if request.endpoint in ['books','add_book','edit_book'] }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5c-1.8-1.2-4.4-1.6-7-1.2v13c2.6-.4 5.2 0 7 1.2 1.8-1.2 4.4-1.6 7-1.2v-13c-2.6-.4-5.2 0-7 1.2z"></path><path d="M12 6.5v13"></path></svg>
+          Books
+        </a>
+        <a href="{{ url_for('members') }}" class="{{ 'active' if request.endpoint in ['members','add_member','edit_member'] }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"></circle><path d="M3.5 20c0-3.6 2.5-6 5.5-6s5.5 2.4 5.5 6"></path><circle cx="17.5" cy="8.5" r="2.2"></circle><path d="M15.2 14.2c2.6.4 4.8 2.5 4.8 5.8"></path></svg>
+          Members
+        </a>
+        <a href="{{ url_for('borrow') }}" class="{{ 'active' if request.endpoint == 'borrow' }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8h14"></path><path d="M14.5 4l3.5 4-3.5 4"></path><path d="M20.5 16h-14"></path><path d="M9.5 12l-3.5 4 3.5 4"></path></svg>
+          Borrow / Return
+        </a>
+        <a href="{{ url_for('transactions') }}" class="{{ 'active' if request.endpoint == 'transactions' }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 6.5h15"></path><path d="M4.5 12h15"></path><path d="M4.5 17.5h9"></path></svg>
+          Transactions
+        </a>
+      </nav>
+      <div class="sidebar-foot">
+        {% if session.username %}
+        <div class="who">Signed in as {{ session.username }}</div>
+        {% endif %}
+        <a href="{{ url_for('logout') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 4.5h-4a1.5 1.5 0 00-1.5 1.5v12a1.5 1.5 0 001.5 1.5h4"></path><path d="M15.5 16l4.5-4-4.5-4"></path><path d="M20 12H9"></path></svg>
+          Log out
+        </a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <button class="nav-toggle" id="navToggle" type="button">☰ Menu</button>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flashes">
+          {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
