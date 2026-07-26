@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Loans — Library Management System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Karla:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <main class="main" style="margin-left:0; max-width:900px; margin-inline:auto;">
+    <div class="page-head">
+      <div>
+        <span class="eyebrow">Student Portal</span>
+        <h1>My Loans</h1>
+      </div>
+      <a href="{{ url_for('student_logout') }}" class="btn btn-outline btn-sm">Log out</a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="flashes">
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+
+    <p class="muted" style="margin-bottom:20px;">Welcome back, {{ student_name }}.</p>
+
+    {% if loans %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Book</th>
+            <th>Author</th>
+            <th>Borrowed</th>
+            <th>Due</th>
+            <th>Returned</th>
+            <th class="num">Fine</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for l in loans %}
+          <tr>
+            <td>{{ l.title }}</td>
+            <td class="muted">{{ l.author }}</td>
+            <td class="num">{{ l.borrow_date.strftime('%b %d, %Y') }}</td>
+            <td class="num">{{ l.due_date.strftime('%b %d, %Y') }}</td>
+            <td class="num">{{ l.return_date.strftime('%b %d, %Y') if l.return_date else '—' }}</td>
+            <td class="num">{{ '$%.2f'|format(l.fine) if l.fine else '—' }}</td>
+            <td>
+              {% if l.status == 'returned' %}
+              <span class="stamp stamp--returned">Returned</span>
+              {% elif l.due_date < today %}
+              <span class="stamp stamp--overdue">Overdue</span>
+              {% else %}
+              <span class="stamp stamp--ontime">On loan</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="empty-note">You haven't borrowed any books yet — check back after your first visit to the library.</p>
+    {% endif %}
+  </main>
+</body>
+</html>
