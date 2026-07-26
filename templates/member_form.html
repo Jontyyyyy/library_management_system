@@ -20,6 +20,11 @@
       <label for="phone">Phone</label>
       <input type="tel" id="phone" name="phone" value="{{ member.phone if member else '' }}">
     </div>
+    <div class="field">
+      <label for="password">Student login password</label>
+      <input type="text" id="password" name="password" placeholder="{{ 'Leave blank to keep unchanged' if member else 'Leave blank to set up later' }}">
+      <div class="field-hint">Optional — set this so {{ member.name if member else 'this member' }} can log in at <code>/student/login</code> to view their own loans.</div>
+    </div>
     <div class="form-actions">
       <button type="submit" class="btn">{{ 'Save Changes' if member else 'Add Member' }}</button>
       <a href="{{ url_for('members') }}" class="btn btn-outline">Cancel</a>
