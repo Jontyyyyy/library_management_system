@@ -16,7 +16,7 @@ from functools import wraps
 import certifi
 import pymysql
 from flask import Flask, flash, redirect, render_template, request, session, url_for
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 import config
 
@@ -59,6 +59,17 @@ def login_required(view):
     return wrapped
 
 
+def student_login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if "student_member_id" not in session:
+            flash("Please log in to continue.", "error")
+            return redirect(url_for("student_login"))
+        return view(*args, **kwargs)
+
+    return wrapped
+
+
 # ---------------------------------------------------------------
 # Auth
 # ---------------------------------------------------------------
@@ -91,6 +102,67 @@ def logout():
     session.clear()
     flash("You've been logged out.", "success")
     return redirect(url_for("login"))
+
+
+# ---------------------------------------------------------------
+# Student login (separate from staff — read-only, scoped to their own loans)
+# ---------------------------------------------------------------
+@app.route("/student/login", methods=["GET", "POST"])
+def student_login():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
+
+        conn = get_db()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT * FROM members WHERE email = %s", (email,))
+                member = cur.fetchone()
+        finally:
+            conn.close()
+
+        if member and member.get("password") and check_password_hash(member["password"], password):
+            session["student_member_id"] = member["member_id"]
+            session["student_name"] = member["name"]
+            return redirect(url_for("student_dashboard"))
+
+        flash("Incorrect email or password.", "error")
+
+    return render_template("student_login.html")
+
+
+@app.route("/student/logout")
+def student_logout():
+    session.pop("student_member_id", None)
+    session.pop("student_name", None)
+    flash("You've been logged out.", "success")
+    return redirect(url_for("student_login"))
+
+
+@app.route("/student")
+@student_login_required
+def student_dashboard():
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT t.*, b.title, b.author
+                   FROM transactions t
+                   JOIN books b ON b.book_id = t.book_id
+                   WHERE t.member_id = %s
+                   ORDER BY (t.status = 'borrowed') DESC, t.due_date ASC""",
+                (session["student_member_id"],),
+            )
+            loans = cur.fetchall()
+    finally:
+        conn.close()
+
+    return render_template(
+        "student_dashboard.html",
+        loans=loans,
+        today=date.today(),
+        student_name=session.get("student_name"),
+    )
 
 
 # ---------------------------------------------------------------
@@ -304,13 +376,15 @@ def add_member():
         name = request.form.get("name", "").strip()
         email = request.form.get("email", "").strip()
         phone = request.form.get("phone", "").strip()
+        password = request.form.get("password", "").strip()
+        password_hash = generate_password_hash(password) if password else None
 
         conn = get_db()
         try:
             with conn.cursor() as cur:
                 cur.execute(
-                    "INSERT INTO members (name, email, phone) VALUES (%s, %s, %s)",
-                    (name, email, phone),
+                    "INSERT INTO members (name, email, phone, password) VALUES (%s, %s, %s, %s)",
+                    (name, email, phone, password_hash),
                 )
             conn.commit()
         except pymysql.err.IntegrityError:
@@ -334,13 +408,20 @@ def edit_member(member_id):
             name = request.form.get("name", "").strip()
             email = request.form.get("email", "").strip()
             phone = request.form.get("phone", "").strip()
+            password = request.form.get("password", "").strip()
 
             try:
                 with conn.cursor() as cur:
-                    cur.execute(
-                        "UPDATE members SET name = %s, email = %s, phone = %s WHERE member_id = %s",
-                        (name, email, phone, member_id),
-                    )
+                    if password:
+                        cur.execute(
+                            "UPDATE members SET name = %s, email = %s, phone = %s, password = %s WHERE member_id = %s",
+                            (name, email, phone, generate_password_hash(password), member_id),
+                        )
+                    else:
+                        cur.execute(
+                            "UPDATE members SET name = %s, email = %s, phone = %s WHERE member_id = %s",
+                            (name, email, phone, member_id),
+                        )
                 conn.commit()
             except pymysql.err.IntegrityError:
                 flash("A member with that email already exists.", "error")
