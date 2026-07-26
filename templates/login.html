@@ -13,7 +13,7 @@
   <div class="login-screen">
     <div class="library-card">
       <span class="eyebrow">Staff Access</span>
-      <h1>jonty</h1>
+      <h1>Jonty</h1>
       <p class="muted" style="margin-top:2px;">Sign in to manage the catalog.</p>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
@@ -38,7 +38,7 @@
         <button type="submit" class="btn login-submit">Sign in</button>
       </form>
 
-      <p class="demo-hint">Demo login — admin / admin123</p>
+      <p class="demo-hint">Student? <a href="{{ url_for('student_login') }}">Log in here</a> to see your own loans.</p>
     </div>
   </div>
 </body>
