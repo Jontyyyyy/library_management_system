@@ -43,6 +43,7 @@
             <th>Returned</th>
             <th class="num">Fine</th>
             <th>Status</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -63,6 +64,13 @@
               <span class="stamp stamp--ontime">On loan</span>
               {% endif %}
             </td>
+            <td>
+              {% if l.status == 'borrowed' %}
+              <form method="POST" action="{{ url_for('student_return', transaction_id=l.transaction_id) }}">
+                <button type="submit" class="btn btn-outline btn-sm">Return</button>
+              </form>
+              {% endif %}
+            </td>
           </tr>
           {% endfor %}
         </tbody>
@@ -71,6 +79,46 @@
     {% else %}
     <p class="empty-note">You haven't borrowed any books yet — check back after your first visit to the library.</p>
     {% endif %}
+
+    <div class="panel" style="margin-top:28px;">
+      <h2>Browse &amp; Borrow</h2>
+      {% if catalog %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Author</th>
+              <th>Genre</th>
+              <th class="num">Available</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in catalog %}
+            <tr>
+              <td>{{ b.title }}</td>
+              <td class="muted">{{ b.author }}</td>
+              <td>{{ b.genre or '—' }}</td>
+              <td class="num">{{ b.available_copies }} / {{ b.total_copies }}</td>
+              <td>
+                {% if b.available_copies > 0 %}
+                <form method="POST" action="{{ url_for('student_borrow', book_id=b.book_id) }}">
+                  <button type="submit" class="btn btn-sm">Borrow</button>
+                </form>
+                {% else %}
+                <span class="muted">Not available</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="empty-note">No books in the catalog yet.</p>
+      {% endif %}
+    </div>
   </main>
 </body>
 </html>
