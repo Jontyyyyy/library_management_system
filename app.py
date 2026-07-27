@@ -154,15 +154,88 @@ def student_dashboard():
                 (session["student_member_id"],),
             )
             loans = cur.fetchall()
+
+            cur.execute("SELECT * FROM books ORDER BY title")
+            catalog = cur.fetchall()
     finally:
         conn.close()
 
     return render_template(
         "student_dashboard.html",
         loans=loans,
+        catalog=catalog,
         today=date.today(),
         student_name=session.get("student_name"),
     )
+
+
+@app.route("/student/borrow/<int:book_id>", methods=["POST"])
+@student_login_required
+def student_borrow(book_id):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT available_copies, title FROM books WHERE book_id = %s", (book_id,))
+            book = cur.fetchone()
+
+            if not book or book["available_copies"] < 1:
+                flash("That book isn't available right now.", "error")
+            else:
+                borrow_date = date.today()
+                due_date = borrow_date + timedelta(days=config.LOAN_PERIOD_DAYS)
+                cur.execute(
+                    """INSERT INTO transactions
+                       (book_id, member_id, borrow_date, due_date, status)
+                       VALUES (%s, %s, %s, %s, 'borrowed')""",
+                    (book_id, session["student_member_id"], borrow_date, due_date),
+                )
+                cur.execute(
+                    "UPDATE books SET available_copies = available_copies - 1 WHERE book_id = %s",
+                    (book_id,),
+                )
+                conn.commit()
+                flash(f'"{book["title"]}" borrowed — due back {due_date.strftime("%b %d, %Y")}.', "success")
+    finally:
+        conn.close()
+
+    return redirect(url_for("student_dashboard"))
+
+
+@app.route("/student/return/<int:transaction_id>", methods=["POST"])
+@student_login_required
+def student_return(transaction_id):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM transactions WHERE transaction_id = %s", (transaction_id,))
+            txn = cur.fetchone()
+
+            if not txn or txn["member_id"] != session["student_member_id"]:
+                flash("That loan wasn't found.", "error")
+            elif txn["status"] != "borrowed":
+                flash("That loan was already closed out.", "error")
+            else:
+                today = date.today()
+                days_late = (today - txn["due_date"]).days
+                fine = round(days_late * config.FINE_PER_DAY, 2) if days_late > 0 else 0.00
+
+                cur.execute(
+                    "UPDATE transactions SET return_date = %s, status = 'returned', fine = %s WHERE transaction_id = %s",
+                    (today, fine, transaction_id),
+                )
+                cur.execute(
+                    "UPDATE books SET available_copies = available_copies + 1 WHERE book_id = %s",
+                    (txn["book_id"],),
+                )
+                conn.commit()
+                if fine > 0:
+                    flash(f"Returned — ${fine:.2f} late fine applied.", "success")
+                else:
+                    flash("Returned on time. No fine.", "success")
+    finally:
+        conn.close()
+
+    return redirect(url_for("student_dashboard"))
 
 
 # ---------------------------------------------------------------
@@ -305,271 +378,4 @@ def edit_book(book_id):
                 )
             conn.commit()
             flash(f'"{title}" was updated.', "success")
-            return redirect(url_for("books"))
-
-        with conn.cursor() as cur:
-            cur.execute("SELECT * FROM books WHERE book_id = %s", (book_id,))
-            book = cur.fetchone()
-    finally:
-        conn.close()
-
-    if book is None:
-        flash("That book no longer exists.", "error")
-        return redirect(url_for("books"))
-
-    return render_template("book_form.html", book=book)
-
-
-@app.route("/books/delete/<int:book_id>", methods=["POST"])
-@login_required
-def delete_book(book_id):
-    conn = get_db()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT COUNT(*) AS c FROM transactions WHERE book_id = %s AND status = 'borrowed'",
-                (book_id,),
-            )
-            if cur.fetchone()["c"] > 0:
-                flash("Can't delete a book that's currently on loan.", "error")
-            else:
-                cur.execute("DELETE FROM books WHERE book_id = %s", (book_id,))
-                conn.commit()
-                flash("Book removed from the catalog.", "success")
-    finally:
-        conn.close()
-
-    return redirect(url_for("books"))
-
-
-# ---------------------------------------------------------------
-# Members
-# ---------------------------------------------------------------
-@app.route("/members")
-@login_required
-def members():
-    q = request.args.get("q", "").strip()
-    conn = get_db()
-    try:
-        with conn.cursor() as cur:
-            if q:
-                like = f"%{q}%"
-                cur.execute(
-                    """SELECT * FROM members
-                       WHERE name LIKE %s OR email LIKE %s
-                       ORDER BY name""",
-                    (like, like),
-                )
-            else:
-                cur.execute("SELECT * FROM members ORDER BY name")
-            member_rows = cur.fetchall()
-    finally:
-        conn.close()
-
-    return render_template("members.html", members=member_rows, q=q)
-
-
-@app.route("/members/add", methods=["GET", "POST"])
-@login_required
-def add_member():
-    if request.method == "POST":
-        name = request.form.get("name", "").strip()
-        email = request.form.get("email", "").strip()
-        phone = request.form.get("phone", "").strip()
-        password = request.form.get("password", "").strip()
-        password_hash = generate_password_hash(password) if password else None
-
-        conn = get_db()
-        try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "INSERT INTO members (name, email, phone, password) VALUES (%s, %s, %s, %s)",
-                    (name, email, phone, password_hash),
-                )
-            conn.commit()
-        except pymysql.err.IntegrityError:
-            flash("A member with that email already exists.", "error")
-            return render_template("member_form.html", member=None)
-        finally:
-            conn.close()
-
-        flash(f"{name} was added as a member.", "success")
-        return redirect(url_for("members"))
-
-    return render_template("member_form.html", member=None)
-
-
-@app.route("/members/edit/<int:member_id>", methods=["GET", "POST"])
-@login_required
-def edit_member(member_id):
-    conn = get_db()
-    try:
-        if request.method == "POST":
-            name = request.form.get("name", "").strip()
-            email = request.form.get("email", "").strip()
-            phone = request.form.get("phone", "").strip()
-            password = request.form.get("password", "").strip()
-
-            try:
-                with conn.cursor() as cur:
-                    if password:
-                        cur.execute(
-                            "UPDATE members SET name = %s, email = %s, phone = %s, password = %s WHERE member_id = %s",
-                            (name, email, phone, generate_password_hash(password), member_id),
-                        )
-                    else:
-                        cur.execute(
-                            "UPDATE members SET name = %s, email = %s, phone = %s WHERE member_id = %s",
-                            (name, email, phone, member_id),
-                        )
-                conn.commit()
-            except pymysql.err.IntegrityError:
-                flash("A member with that email already exists.", "error")
-                return render_template("member_form.html", member={"member_id": member_id, "name": name, "email": email, "phone": phone})
-
-            flash(f"{name}'s details were updated.", "success")
-            return redirect(url_for("members"))
-
-        with conn.cursor() as cur:
-            cur.execute("SELECT * FROM members WHERE member_id = %s", (member_id,))
-            member = cur.fetchone()
-    finally:
-        conn.close()
-
-    if member is None:
-        flash("That member no longer exists.", "error")
-        return redirect(url_for("members"))
-
-    return render_template("member_form.html", member=member)
-
-
-@app.route("/members/delete/<int:member_id>", methods=["POST"])
-@login_required
-def delete_member(member_id):
-    conn = get_db()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT COUNT(*) AS c FROM transactions WHERE member_id = %s AND status = 'borrowed'",
-                (member_id,),
-            )
-            if cur.fetchone()["c"] > 0:
-                flash("Can't remove a member who currently has a book out.", "error")
-            else:
-                cur.execute("DELETE FROM members WHERE member_id = %s", (member_id,))
-                conn.commit()
-                flash("Member removed.", "success")
-    finally:
-        conn.close()
-
-    return redirect(url_for("members"))
-
-
-# ---------------------------------------------------------------
-# Borrow / return
-# ---------------------------------------------------------------
-@app.route("/borrow", methods=["GET", "POST"])
-@login_required
-def borrow():
-    conn = get_db()
-    try:
-        if request.method == "POST":
-            book_id = int(request.form["book_id"])
-            member_id = int(request.form["member_id"])
-            borrow_date = date.today()
-            due_date = borrow_date + timedelta(days=config.LOAN_PERIOD_DAYS)
-
-            with conn.cursor() as cur:
-                cur.execute("SELECT available_copies, title FROM books WHERE book_id = %s", (book_id,))
-                book = cur.fetchone()
-
-                if not book or book["available_copies"] < 1:
-                    flash("That book isn't available right now.", "error")
-                else:
-                    cur.execute(
-                        """INSERT INTO transactions
-                           (book_id, member_id, borrow_date, due_date, status)
-                           VALUES (%s, %s, %s, %s, 'borrowed')""",
-                        (book_id, member_id, borrow_date, due_date),
-                    )
-                    cur.execute(
-                        "UPDATE books SET available_copies = available_copies - 1 WHERE book_id = %s",
-                        (book_id,),
-                    )
-                    conn.commit()
-                    flash(f'"{book["title"]}" issued — due back {due_date.strftime("%b %d, %Y")}.', "success")
-            return redirect(url_for("borrow"))
-
-        with conn.cursor() as cur:
-            cur.execute("SELECT * FROM books WHERE available_copies > 0 ORDER BY title")
-            available_books = cur.fetchall()
-            cur.execute("SELECT * FROM members ORDER BY name")
-            member_rows = cur.fetchall()
-    finally:
-        conn.close()
-
-    return render_template("borrow.html", available_books=available_books, members=member_rows)
-
-
-@app.route("/return/<int:transaction_id>", methods=["POST"])
-@login_required
-def return_book(transaction_id):
-    conn = get_db()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT * FROM transactions WHERE transaction_id = %s", (transaction_id,))
-            txn = cur.fetchone()
-
-            if not txn or txn["status"] != "borrowed":
-                flash("That loan was already closed out.", "error")
-                return redirect(url_for("transactions"))
-
-            today = date.today()
-            days_late = (today - txn["due_date"]).days
-            fine = round(days_late * config.FINE_PER_DAY, 2) if days_late > 0 else 0.00
-
-            cur.execute(
-                "UPDATE transactions SET return_date = %s, status = 'returned', fine = %s WHERE transaction_id = %s",
-                (today, fine, transaction_id),
-            )
-            cur.execute(
-                "UPDATE books SET available_copies = available_copies + 1 WHERE book_id = %s",
-                (txn["book_id"],),
-            )
-            conn.commit()
-
-            if fine > 0:
-                flash(f"Book returned — ${fine:.2f} late fine applied.", "success")
-            else:
-                flash("Book returned on time. No fine.", "success")
-    finally:
-        conn.close()
-
-    return redirect(url_for("transactions"))
-
-
-@app.route("/transactions")
-@login_required
-def transactions():
-    conn = get_db()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                """SELECT t.*, b.title, m.name
-                   FROM transactions t
-                   JOIN books b ON b.book_id = t.book_id
-                   JOIN members m ON m.member_id = t.member_id
-                   ORDER BY t.borrow_date DESC"""
-            )
-            txn_rows = cur.fetchall()
-    finally:
-        conn.close()
-
-    return render_template("transactions.html", transactions=txn_rows, today=date.today())
-
-
-if __name__ == "__main__":
-    import os
-
-    debug_mode = (os.environ.get("FLASK_DEBUG") or "true").lower() == "true"
-    app.run(debug=debug_mode)
+            return
